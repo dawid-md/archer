@@ -22,6 +22,7 @@ BOW_HALF_SPAN = 12
 BOW_CURVE = 8
 ARROW_SPEED = 16.0
 ARROW_LENGTH = 20
+ARROW_GRAVITY = 0.14
 
 HEAD_RADIUS = 9
 TORSO_LEN = 18
@@ -128,8 +129,15 @@ class Arrow:
         self.active = True
 
     def update(self, screen_w: int, screen_h: int) -> None:
+        self.vel_y += ARROW_GRAVITY
         self.x += self.vel_x
         self.y += self.vel_y
+
+        speed = math.hypot(self.vel_x, self.vel_y)
+        if speed > 0:
+            self.dir_x = self.vel_x / speed
+            self.dir_y = self.vel_y / speed
+
         margin = 60
         if not (-margin <= self.x <= screen_w + margin and -margin <= self.y <= screen_h + margin):
             self.active = False
