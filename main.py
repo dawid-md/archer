@@ -46,6 +46,15 @@ ARROW_SHAFT_COLOR = (200, 195, 180)
 ARROW_HEAD_COLOR = (150, 150, 160)
 ARROW_FLETCH_COLOR = (175, 45, 45)
 
+BIRD_COUNT = 6
+BIRD_MIN_SPEED = 1.2
+BIRD_MAX_SPEED = 2.6
+BIRD_SIZE = 6
+BIRD_COLOR = (30, 30, 35)
+BIRD_MIN_Y_FRAC = 0.08
+BIRD_MAX_Y_FRAC = 0.35
+BIRD_FALL_GRAVITY = 0.5
+
 
 def draw_segment(surface, color, start, length, angle, width=3):
     """Draw a limb from start; angle is radians from downward vertical (+= rightward)."""
@@ -157,6 +166,50 @@ class Arrow:
         fletch_b = (tail[0] - perp[0] * 3, tail[1] - perp[1] * 3)
         pygame.draw.line(surface, ARROW_FLETCH_COLOR, tail, fletch_a, 2)
         pygame.draw.line(surface, ARROW_FLETCH_COLOR, tail, fletch_b, 2)
+
+
+class Bird:
+    def __init__(self, screen_w: int, screen_h: int) -> None:
+        self.respawn(screen_w, screen_h)
+
+    def respawn(self, screen_w: int, screen_h: int) -> None:
+        self.x = random.uniform(0, screen_w)
+        self.y = random.uniform(screen_h * BIRD_MIN_Y_FRAC, screen_h * BIRD_MAX_Y_FRAC)
+        self.vel_x = random.uniform(BIRD_MIN_SPEED, BIRD_MAX_SPEED) * random.choice([-1, 1])
+        self.vel_y = 0.0
+        self.wing_phase = random.uniform(0, math.tau)
+        self.alive = True
+
+    def rect(self) -> pygame.Rect:
+        return pygame.Rect(int(self.x - BIRD_SIZE), int(self.y - BIRD_SIZE),
+                            BIRD_SIZE * 2, BIRD_SIZE * 2)
+
+    def hit(self) -> None:
+        if self.alive:
+            self.alive = False
+            self.vel_y = -2.0
+
+    def update(self, screen_w: int, screen_h: int) -> None:
+        self.wing_phase += 0.25
+        if self.alive:
+            self.x += self.vel_x
+            if self.x < -20:
+                self.x = screen_w + 20
+            elif self.x > screen_w + 20:
+                self.x = -20
+        else:
+            self.vel_y += BIRD_FALL_GRAVITY
+            self.x += self.vel_x * 0.3
+            self.y += self.vel_y
+            if self.y > screen_h + 30:
+                self.respawn(screen_w, screen_h)
+
+    def render(self, surface: pygame.Surface) -> None:
+        cx, cy = int(self.x), int(self.y)
+        flap = int(math.sin(self.wing_phase) * BIRD_SIZE) if self.alive else -BIRD_SIZE
+        pygame.draw.line(surface, BIRD_COLOR, (cx - BIRD_SIZE * 2, cy - flap), (cx, cy), 2)
+        pygame.draw.line(surface, BIRD_COLOR, (cx + BIRD_SIZE * 2, cy - flap), (cx, cy), 2)
+        pygame.draw.circle(surface, BIRD_COLOR, (cx, cy), 2)
 
 
 class Player:
@@ -328,6 +381,7 @@ def main() -> None:
     bg = Background(screen_w, screen_h)
     player = Player(screen_w // 2 - PLAYER_WIDTH // 2, screen_h - GROUND_HEIGHT - PLAYER_HEIGHT)
     arrows: list[Arrow] = []
+    birds = [Bird(screen_w, screen_h) for _ in range(BIRD_COUNT)]
     t = 0.0
 
     while True:
@@ -378,11 +432,25 @@ def main() -> None:
         player.update(screen_w, screen_h)
         for arrow in arrows:
             arrow.update(screen_w, screen_h)
+        for bird in birds:
+            bird.update(screen_w, screen_h)
+
+        for arrow in arrows:
+            if not arrow.active:
+                continue
+            for bird in birds:
+                if bird.alive and bird.rect().collidepoint(arrow.x, arrow.y):
+                    bird.hit()
+                    arrow.active = False
+                    break
+
         arrows = [arrow for arrow in arrows if arrow.active]
         t += 1.0
 
         # --- Render ---
         bg.render(screen, t)
+        for bird in birds:
+            bird.render(screen)
         player.render(screen)
         for arrow in arrows:
             arrow.render(screen)
