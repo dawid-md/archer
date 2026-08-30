@@ -31,6 +31,7 @@ LEG_LEN = 22
 
 SKY_COLOR = (6, 6, 18)
 MOON_COLOR = (235, 228, 195)
+TREE_COLOR = (14, 24, 16)
 MTN_FAR = (11, 11, 26)
 MTN_NEAR = (17, 17, 36)
 GROUND_TOP = (52, 140, 60)
@@ -72,6 +73,7 @@ class Background:
         self.stars = self._gen_stars(90)
         self.far_pts = self._gen_mountain(seed=7, x_step=(50, 110), y_range=(0.42, 0.62))
         self.near_pts = self._gen_mountain(seed=13, x_step=(70, 150), y_range=(0.58, 0.76))
+        self.trees = self._gen_trees(seed=21, x_step=(28, 58))
 
     def _gen_stars(self, count):
         rng = random.Random(99)
@@ -98,6 +100,17 @@ class Background:
         pts.append((self.screen_w, self.screen_h))
         return pts
 
+    def _gen_trees(self, seed, x_step):
+        rng = random.Random(seed)
+        trees = []
+        x = 0
+        while x < self.screen_w:
+            x += rng.randint(*x_step)
+            height = rng.randint(14, 26)
+            width = rng.randint(8, 14)
+            trees.append((min(x, self.screen_w), width, height))
+        return trees
+
     def render(self, surface: pygame.Surface, t: float) -> None:
         surface.fill(SKY_COLOR)
 
@@ -119,8 +132,18 @@ class Background:
         pygame.draw.polygon(surface, MTN_FAR, self.far_pts)
         pygame.draw.polygon(surface, MTN_NEAR, self.near_pts)
 
-        # Green ground
+        # Small distant trees along the horizon
         gy = self.screen_h - GROUND_HEIGHT
+        for tx, tw, th in self.trees:
+            trunk_h = 4
+            pygame.draw.rect(surface, TREE_COLOR, (tx - 1, gy - trunk_h, 2, trunk_h))
+            pygame.draw.polygon(surface, TREE_COLOR, [
+                (tx, gy - trunk_h - th),
+                (tx - tw // 2, gy - trunk_h),
+                (tx + tw // 2, gy - trunk_h),
+            ])
+
+        # Green ground
         pygame.draw.rect(surface, GROUND_BOT, (0, gy, self.screen_w, GROUND_HEIGHT))
         pygame.draw.rect(surface, GROUND_MID, (0, gy, self.screen_w, GROUND_HEIGHT - 6))
         pygame.draw.rect(surface, GROUND_TOP, (0, gy, self.screen_w, 6))
